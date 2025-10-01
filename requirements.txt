@@ -36,4 +36,4 @@ langserve
 sse_starlette
 langchain_core
 streamlit
-Ollama
+ddgs
