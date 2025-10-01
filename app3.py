@@ -172,7 +172,7 @@ if st.session_state.mode == "translate":
             st.session_state.messages.append({"role": "assistant", "content": translated})
             st.chat_message("assistant").write(translated)
 
-            
+
 elif st.session_state.mode == "search":
     # show search input
     user_query = st.text_input("Search query or question:", "")
@@ -184,8 +184,8 @@ elif st.session_state.mode == "search":
             st.chat_message("user").write(user_query)
 
             # prepare agent tools and agent
-            arxiv = ArxivQueryRun(api_wrapper=ArxivAPIWrapper(top_k_results=1, doc_content_chars_max=200))
-            wiki = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=200))
+            arxiv = ArxivQueryRun(api_wrapper=ArxivAPIWrapper(top_k_results=1, doc_content_chars_max=1000))
+            wiki = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=1000))
             search = DuckDuckGoSearchRun(name="Search")
 
             tools = [search, arxiv, wiki]
@@ -224,7 +224,7 @@ else:
 
             if need_process:
                 # Split and embed once per upload set
-                text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+                text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=200)
                 splits = text_splitter.split_documents(documents)
                 vectorstore = FAISS.from_documents(documents=splits, embedding=embeddings)
                 st.session_state.vectorstore = vectorstore
@@ -288,8 +288,8 @@ else:
 
         # No PDFs => fallback to search agent (auto)
         else:
-            arxiv = ArxivQueryRun(api_wrapper=ArxivAPIWrapper(top_k_results=1, doc_content_chars_max=200))
-            wiki = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=200))
+            arxiv = ArxivQueryRun(api_wrapper=ArxivAPIWrapper(top_k_results=1, doc_content_chars_max=1000))
+            wiki = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=1000))
             search = DuckDuckGoSearchRun(name="Search")
 
             tools = [search, arxiv, wiki]
