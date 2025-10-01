@@ -30,6 +30,7 @@ from langchain.chains import LLMMathChain, LLMChain
 # ---------------- Environment & embeddings ----------------
 load_dotenv()
 os.environ['HF_TOKEN'] = os.getenv("HF_TOKEN")
+## adding secret key for deployement in streamlit
 st.secrets['HF_TOKEN']
 # Auto device detection (GPU if available, else CPU)
 device = "cuda" if torch.cuda.is_available() else "cpu"
