@@ -1,22 +1,24 @@
-# FayyazAI - Chat with PDF, Search, Translate, or Math Solver
+# FayyazAI - Chat with PDF, Search, Translate, Math Solver, or Summarize URL
 import streamlit as st
 from dotenv import load_dotenv
 import os
 import torch
+import validators
 
 # LangChain / tools
 from langchain.chains import create_history_aware_retriever, create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from langchain_groq import ChatGroq
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, UnstructuredURLLoader
 from langchain_community.vectorstores import FAISS
 from langchain.schema import HumanMessage, AIMessage
+from langchain.chains.summarize import load_summarize_chain
 
 # Tools for search & agents
 from langchain_community.utilities import ArxivAPIWrapper, WikipediaAPIWrapper
@@ -24,7 +26,6 @@ from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun, DuckDuck
 from langchain.agents import initialize_agent, AgentType, Tool
 from langchain.callbacks import StreamlitCallbackHandler
 from langchain.chains import LLMMathChain, LLMChain
-from langchain.prompts import PromptTemplate
 
 # ---------------- Environment & embeddings ----------------
 load_dotenv()
@@ -38,6 +39,7 @@ embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2",
     model_kwargs={"device": device}
 )
+
 
 # ---------------- Streamlit Setup ----------------
 st.set_page_config(page_title="FayyazAI", page_icon="🧠")
@@ -56,8 +58,7 @@ if "session_id" not in st.session_state:
     st.session_state.session_id = "default_session"
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hi 👋 I'm FayyazAI. How can I help you today?"},
-        {"role": "assistant", "content": "You can: 1) Upload a PDF  2) Search the web  3) Translate text  4) Solve Math problems"},
+        {"role": "assistant", "content": "Hi 👋 I'm FayyazAI. How can I help you today?"}         
     ]
 if "mode" not in st.session_state:
     st.session_state.mode = None
@@ -80,7 +81,7 @@ if not st.session_state.api_key:
     st.stop()
 
 # ---------------- MAIN APP ----------------
-st.title("🤖 FayyazAI")
+st.title("🧠 FayyazAI")
 st.write("Choose an action below or just type — I'll route the request appropriately.")
 
 # Initialize LLM
@@ -91,7 +92,7 @@ for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
 # Quick-action buttons
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 if col1.button("📄 Upload PDF"):
     st.session_state.mode = "pdf"
 if col2.button("🌐 Search web"):
@@ -100,10 +101,11 @@ if col3.button("🔁 Translate"):
     st.session_state.mode = "translate"
 if col4.button("🧮 Math Solver"):
     st.session_state.mode = "math"
+if col5.button("🦜 Summarize URL"):
+    st.session_state.mode = "summarize"
 
 # Sidebar
 st.sidebar.markdown("### Options")
-st.sidebar.markdown("Mode is auto-detected (or use buttons above).")
 uploaded_files = st.sidebar.file_uploader("📂 Upload PDF files (optional)", type="pdf", accept_multiple_files=True)
 
 # Set mode auto
@@ -212,6 +214,40 @@ elif st.session_state.mode == "math":
                 st.session_state.messages.append({"role": "assistant", "content": response})
                 st.write("### Response:")
                 st.success(response)
+
+# SUMMARIZE MODE (only URL, no YouTube)
+elif st.session_state.mode == "summarize":
+    st.subheader("🦜 Summarize Website URL")
+    generic_url = st.text_input("Enter a Website URL", "")
+
+    if st.button("Summarize"):
+        if not st.session_state.api_key.strip() or not generic_url.strip():
+            st.error("Please provide your Groq API key and a URL")
+        elif not validators.url(generic_url):
+            st.error("Please enter a valid URL")
+        else:
+            try:
+                with st.spinner("Fetching and summarizing..."):
+                    loader = UnstructuredURLLoader(
+                        urls=[generic_url],
+                        ssl_verify=False,
+                        headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    docs = loader.load()
+
+                    prompt_template = """
+                    Provide a summary of the following content in about 300 words:
+                    Content: {text}
+                    """
+                    prompt = PromptTemplate(template=prompt_template, input_variables=["text"])
+
+                    chain = load_summarize_chain(llm, chain_type="stuff", prompt=prompt)
+                    output_summary = chain.run(docs)
+
+                    st.session_state.messages.append({"role": "assistant", "content": output_summary})
+                    st.success(output_summary)
+            except Exception as e:
+                st.exception(f"Exception: {e}")
 
 # DEFAULT / PDF MODE
 else:

@@ -19,11 +19,13 @@ from dotenv import load_dotenv
 load_dotenv()
 os.environ['HF_TOKEN'] = os.getenv("HF_TOKEN")
 
+# Auto device detection (works on local + Streamlit Cloud)
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Embeddings (force to device)
 embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2",
-    model_kwargs={"device": cpu}
+    model_kwargs={"device": device}
 )
 
 # Streamlit page setup
